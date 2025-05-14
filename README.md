@@ -75,16 +75,6 @@ The `ELL14K` class provides the following methods:
 - Command timeout: 0.5 seconds
 - Default axis ID: 0
 
-## Safety Notes
 
-1. Always ensure the device is properly mounted before movement
-2. Do not exceed the device's physical limits
-3. Keep the device powered during operation
-4. Close the connection properly after use
 
-## Support
 
-For issues with the script, please check:
-1. Thorlabs documentation for your specific device
-2. Verify all connections and power supply
-3. Check Windows Device Manager for proper device recognition
