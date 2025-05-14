@@ -53,6 +53,7 @@ class ELL14K:
         except serial.SerialException as e:
             raise Exception(f"Communication error: {e}")
 
+    #Doesn't work at all, always goes to 0 degrees
     def home(self):
         """Snap to 0 degrees to simulate homing."""
         print("Simulated homing: moving to 0 degrees...")
@@ -73,6 +74,7 @@ class ELL14K:
             print(f"Error getting angle: {e}")
             return None
 
+    # Move to always moves to 0 degrees no matter what degree we put in 
     def move_to_angle(self, angle_deg):
         """Move to absolute angle."""
         try:
@@ -86,6 +88,7 @@ class ELL14K:
             print(f"Error moving to angle: {e}")
             return None
 
+    # doesnt work at all, no response
     def move_by_angle(self, delta_deg):
         """Move by relative angle."""
         try:
