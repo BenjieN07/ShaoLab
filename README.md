@@ -75,6 +75,9 @@ The `ELL14K` class provides the following methods:
 - Command timeout: 0.5 seconds
 - Default axis ID: 0
 
+https://www.thorlabs.com/Software/Elliptec/Communications_Protocol/ELLx%20modules%20protocol%20manual_Issue8.pdf
+
+
 
 
 
