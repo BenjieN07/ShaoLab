@@ -1,16 +1,20 @@
 import serial
 import time
 
-def send_command(ser, cmd, read_length=32, delay=0.1):
+def send_command(ser, command):
     """
-    Send a command to the Elliptec device and read the response.
+    Sends a command to the motor via serial communication.
+    Returns the response or None if the COM port is unavailable.
     """
-    ser.reset_input_buffer()
-    ser.reset_output_buffer()
-    ser.write(cmd)
-    time.sleep(delay)
-    response = ser.read(read_length)
-    return response
+    if ser.isOpen():
+        ser.write(command.encode('utf-8'))
+        ser.write(b'\r\n')
+        time.sleep(0.1)  # Adjust as necessary based on the command execution time
+        response = ser.read_all()
+        return response.decode('utf-8')
+    else:
+        print("Serial connection is not open.")
+        return None
 
 if __name__ == "__main__":
     port = 'COM4'      # Adjust if needed
@@ -21,22 +25,28 @@ if __name__ == "__main__":
         ser = serial.Serial(port, baudrate, timeout=timeout)
         print(f"Opened {port} at {baudrate} baud")
 
-        # The identity command from the manual is '0ZZ' (axis 0, command ZZ)
-        cmd = b'0ZZ'
-        print(f"Sending command: {cmd.decode()}")
+        # Test basic commands
+        print("\nTesting basic commands:")
+        
+        # Test identity command (0ZZ)
+        print("\nTesting identity command:")
+        response = send_command(ser, '0ZZ')
+        print(f"Response: {response}")
 
-        # Try a few times in case device is slow to respond
-        for attempt in range(3):
-            response = send_command(ser, cmd)
-            if response:
-                print(f"Response (raw): {response}")
-                print(f"Response (decoded): {response.decode(errors='ignore')}")
-                break
-            else:
-                print(f"No response, retrying... ({attempt + 1}/3)")
-                time.sleep(0.2)
-        else:
-            print("Failed to get a response after 3 tries.")
+        # Test home command (0ho0)
+        print("\nTesting home command:")
+        response = send_command(ser, '0ho0')
+        print(f"Response: {response}")
+
+        # Test get position command (0gp)
+        print("\nTesting get position command:")
+        response = send_command(ser, '0gp')
+        print(f"Response: {response}")
+
+        # Test get status command (0gs)
+        print("\nTesting get status command:")
+        response = send_command(ser, '0gs')
+        print(f"Response: {response}")
 
     except serial.SerialException as e:
         print(f"Serial error: {e}")
@@ -46,3 +56,4 @@ if __name__ == "__main__":
         if 'ser' in locals() and ser.is_open:
             ser.close()
             print("Closed serial port")
+
