@@ -112,13 +112,13 @@ if __name__ == "__main__":
         print(f"Response: {response}")
 
         # Test home command (0ho0)
-        print("\nTesting home command:")
+        '''print("\nTesting home command:")
         response = send_command(ser, '0ho0')
-        print(f"Response: {response}")
+        print(f"Response: {response}")'''
 
         # Test get position command (0gp)
         print("\nTesting get position command:")
-        response = send_command(ser, '0gp')
+        response = send_command(ser, '0ma0000558E')
         print(f"Response: {response}")
 
         # Test get status command (0gs)
@@ -131,13 +131,13 @@ if __name__ == "__main__":
         response = send_command(ser, '0in')
         print(f"Response: {response}")
 
-        # Test move_to function
+        '''# Test move_to function
         print("\nTesting move_to function:")
         move_to(ser, 45)  # Move to 45 degrees
-        time.sleep(1)
+        time.sleep(2)
         move_to(ser, 90)  # Move to 90 degrees
-        time.sleep(1)
-        move_to(ser, 0)   # Move back to 0 degrees
+        time.sleep(2)
+        move_to(ser, 0)   # Move back to 0 degrees'''
 
     except serial.SerialException as e:
         print(f"Serial error: {e}")
