@@ -1,6 +1,62 @@
 import serial
 import time
 
+def degrees_to_hex(degrees):
+    """
+    Converts degrees to the hex format used by ELL14K controller.
+    The controller uses 51200 pulses per 360 degrees.
+    """
+    pulses_per_degree = 51200 / 360
+    pulses = int(degrees * pulses_per_degree)
+    return f"{pulses:08X}"
+
+def hex_to_degrees(hex_str):
+    """
+    Converts hex format back to degrees.
+    """
+    pulses = int(hex_str, 16)
+    return pulses * (360 / 51200)
+
+def move_to(ser, angle, motor_num='0'):
+    """
+    Moves the motor to a specified angle in degrees.
+    
+    Parameters:
+    -----------
+    ser : serial.Serial
+        Serial connection to the motor
+    angle : float
+        Target angle in degrees
+    motor_num : str
+        Motor number (default '0')
+    """
+    # Convert angle to hex format
+    hex_steps = degrees_to_hex(angle)
+    
+    # Send move absolute command
+    command = f'{motor_num}ma{hex_steps}'
+    print(f"Moving to {angle} degrees (hex: {hex_steps})")
+    
+    response = send_command(ser, command)
+    print("command", command) # print the command being used 
+    
+    if response:
+        print(f"Move command response: {response}")
+        
+        # Wait for movement to complete
+        while True:
+            status = send_command(ser, f'{motor_num}gs')
+            if status and 'GS00' in status:  # GS00 indicates movement complete
+                break
+            time.sleep(0.1)
+        
+        # Get final position
+        pos_response = send_command(ser, f'{motor_num}gp')
+        if pos_response:
+            print(f"Final position: {pos_response}")
+    else:
+        print("Failed to send move command")
+
 def send_command(ser, command):
     """
     Sends a command to the motor via serial communication.
@@ -73,6 +129,14 @@ if __name__ == "__main__":
         print("\nTesting get firmware version:")
         response = send_command(ser, '0in')
         print(f"Response: {response}")
+
+        # Test move_to function
+        print("\nTesting move_to function:")
+        move_to(ser, 45)  # Move to 45 degrees
+        time.sleep(1)
+        move_to(ser, 90)  # Move to 90 degrees
+        time.sleep(1)
+        move_to(ser, 0)   # Move back to 0 degrees
 
     except serial.SerialException as e:
         print(f"Serial error: {e}")
