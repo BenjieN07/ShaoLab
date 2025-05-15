@@ -4,18 +4,19 @@ import time
 def degrees_to_hex(degrees):
     """
     Converts degrees to the hex format used by ELL14K controller.
-    The controller uses 51200 pulses per 360 degrees.
+    Example: 45 degrees -> 00004600
     """
-    pulses_per_degree = 51200 / 360
-    pulses = int(degrees * pulses_per_degree)
-    return f"{pulses:08X}"
+    # Convert degrees to the correct hex format
+    hex_value = int(degrees * 512)  # 512 steps per degree
+    return f"{hex_value:08X}"
 
 def hex_to_degrees(hex_str):
     """
     Converts hex format back to degrees.
+    Example: 00004600 -> 45 degrees
     """
     pulses = int(hex_str, 16)
-    return pulses * (360 / 51200)
+    return pulses / 512  # 512 steps per degree
 
 def move_to(ser, angle, motor_num='0'):
     """
@@ -38,7 +39,7 @@ def move_to(ser, angle, motor_num='0'):
     print(f"Moving to {angle} degrees (hex: {hex_steps})")
     
     response = send_command(ser, command)
-    print("command", command) # print the command being used 
+    print("command", command)  # print the command being used
     
     if response:
         print(f"Move command response: {response}")
