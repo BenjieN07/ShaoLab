@@ -1,18 +1,6 @@
 import serial
-import time
 import serial.tools.list_ports
-
-# Changes for each function - notes for Ben 
-# move_to_angle - Now properly formats the steps as a 6-digit hexadecimal string and uses uppercase 'MA' command as per Thorlabs protocol.
-# move_by_angle - Fixed to properly handle negative angles and use hex formatting.
-# home - Now uses the proper 'HO' command instead of trying to move to a specific angle.
-# get_angle - Updated to use the _send_command method for consistency and properly parse the hexadecimal position response.
-
-# Previous issues -
-# Thorlabs ELL14K requires position values to be in hexadecimal format, not decimal
-# Commands need to be uppercase (MA, MR, HO, GP) as per the protocol
-# For proper communication, the functions should consistently use the _send_command method
-
+import time
 
 class ELL14K:
     def __init__(self, port='COM4', serial_number='2024-11401210', baudrate=115200, timeout=1.0, 
@@ -20,25 +8,21 @@ class ELL14K:
         self.serial_number = serial_number
         self.baudrate = baudrate
         self.timeout = timeout
-        # Try different axis IDs - some devices use '1' instead of '0'
-        self.axis_id = b'1'  # Changed from '0' to '1'
-        self.steps_per_rev = 51200  # From Thorlabs documentation
-        
-        # If port is not specified, try to find it automatically
+        self.axis_id = b'1'
+        self.steps_per_rev = 51200
+
         if port is None:
             port = self._find_port()
-        
+
         try:
-            # Open with explicit serial parameters
             self.ser = serial.Serial(
-                port=port, 
-                baudrate=self.baudrate, 
+                port=port,
+                baudrate=self.baudrate,
                 timeout=self.timeout,
                 bytesize=bytesize,
                 parity=parity,
                 stopbits=stopbits
             )
-            # Clear any existing data in the buffer
             self.ser.reset_input_buffer()
             self.ser.reset_output_buffer()
             print(f"Connected to {port} with settings: {self.baudrate} baud, timeout {self.timeout}s")
@@ -46,9 +30,12 @@ class ELL14K:
             raise Exception(f"Failed to open serial port: {e}")
 
     def _find_port(self):
-        """Find the correct port for the device."""
         print("Searching for available ports...")
-        ports = serial.tools.list_ports.comports()
+        try:
+            ports = serial.tools.list_ports.comports()
+        except Exception as e:
+            raise Exception(f"Failed to list COM ports: {e}")  # <--- ADDED
+
         for port in ports:
             print(f"Found port: {port.device} - {port.description} - SN: {port.serial_number}")
             if self.serial_number in port.serial_number:
@@ -56,113 +43,89 @@ class ELL14K:
         raise Exception(f"Could not find device with serial number {self.serial_number}")
 
     def _send_command(self, command_bytes):
-        """Send ASCII command to Elliptec and return text response."""
         try:
-            # Try different command formats
-            # Format 1: [Axis ID][Command][Parameters][CR][LF]
-            # Format 2: [Command][Parameters][CR][LF] (no axis ID)
-            # Format 3: [Command][Parameters] (no termination)
-            
-            # Try without axis ID first
-            full_command = command_bytes
-            
-            # Debug info before sending
-            print(f"Sending raw command: {full_command}")
-            print(f"Hex representation: {full_command.hex()}")
-            
-            # Try different termination styles
-            # First try with CR+LF
-            full_command_crlf = full_command + b'\r\n'
+            print(f"Sending raw command: {command_bytes}")
+            print(f"Hex representation: {command_bytes.hex()}")
+
+            full_command_crlf = command_bytes + b'\r\n'
             self.ser.write(full_command_crlf)
-            
-            # Wait for device to process command
             time.sleep(0.2)
-            
-            # Read response with timeout
+
             response = b''
             start_time = time.time()
             while time.time() - start_time < self.timeout:
-                if self.ser.in_waiting > 0:
-                    new_data = self.ser.read(self.ser.in_waiting)
-                    response += new_data
-                    print(f"Read partial data: {new_data}")
-                    # Break if we have a complete response
-                    if b'\r\n' in response or b'\n' in response:
-                        break
-                time.sleep(0.05)
-            
-            # Debug information
-            print(f"Full response: {response} (Length: {len(response)})")
-            print(f"Hex response: {response.hex()}")
-            
-            if not response:
-                print("WARNING: No response received from device")
-                # Try with axis ID if no response
-                print("Trying with axis ID...")
-                full_command_with_id = self.axis_id + command_bytes + b'\r\n'
-                self.ser.write(full_command_with_id)
-                time.sleep(0.2)
-                
-                # Read response again
-                response = b''
-                start_time = time.time()
-                while time.time() - start_time < self.timeout:
+                try:
                     if self.ser.in_waiting > 0:
                         new_data = self.ser.read(self.ser.in_waiting)
                         response += new_data
-                        print(f"Read partial data with ID: {new_data}")
+                        print(f"Read partial data: {new_data}")
                         if b'\r\n' in response or b'\n' in response:
                             break
+                except Exception as e:
+                    print(f"Error while reading from serial: {e}")  # <--- ADDED
+                time.sleep(0.05)
+
+            print(f"Full response: {response} (Length: {len(response)})")
+            print(f"Hex response: {response.hex()}")
+
+            if not response:
+                print("WARNING: No response received. Retrying with axis ID...")
+                full_command_with_id = self.axis_id + command_bytes + b'\r\n'
+                self.ser.write(full_command_with_id)
+                time.sleep(0.2)
+
+                response = b''
+                start_time = time.time()
+                while time.time() - start_time < self.timeout:
+                    try:
+                        if self.ser.in_waiting > 0:
+                            new_data = self.ser.read(self.ser.in_waiting)
+                            response += new_data
+                            print(f"Read partial data with ID: {new_data}")
+                            if b'\r\n' in response or b'\n' in response:
+                                break
+                    except Exception as e:
+                        print(f"Error while reading with ID: {e}")
                     time.sleep(0.05)
-                
+
                 print(f"Response with ID: {response} (Length: {len(response)})")
-                
+
             return response.strip()
-            
+
         except serial.SerialException as e:
-            raise Exception(f"Communication error: {e}")
+            raise Exception(f"Serial communication error: {e}")
         except Exception as e:
             print(f"Unexpected error in _send_command: {e}")
             return b''
 
     def home(self):
-        """Home the device using the HO command."""
-        try:
-            print("\n--- HOMING DEVICE ---")
-            # Try different home commands
-            commands = [b'HO', b'HOME', b'0HO']
-            for cmd in commands:
+        print("\n--- HOMING DEVICE ---")
+        commands = [b'HO', b'HOME', b'0HO']
+        for cmd in commands:
+            try:
                 print(f"Trying home command: {cmd}")
                 response = self._send_command(cmd)
                 if response:
                     print(f"Home command {cmd} got response: {response}")
-                    time.sleep(2)  # Wait for homing to complete
+                    time.sleep(2)
                     return response
-                time.sleep(0.5)
-            return None
-        except Exception as e:
-            print(f"Error homing device: {e}")
-            return None
+            except Exception as e:
+                print(f"Error during home command {cmd}: {e}")  # <--- ADDED
+            time.sleep(0.5)
+        return None
 
     def get_angle(self):
-        """Get current angle in degrees."""
-        try:
-            print("\n--- GETTING CURRENT ANGLE ---")
-            # Try different get position commands
-            commands = [b'GP', b'GETPOS', b'0GP']
-            for cmd in commands:
+        print("\n--- GETTING CURRENT ANGLE ---")
+        commands = [b'GP', b'GETPOS', b'0GP']
+        for cmd in commands:
+            try:
                 print(f"Trying get position command: {cmd}")
                 response = self._send_command(cmd)
                 if response:
-                    print(f"Get position command {cmd} got response: {response}")
                     try:
-                        # Try to decode as ASCII first
                         response_str = response.decode('ascii', errors='replace')
                         print(f"Decoded response: {response_str}")
-                        
-                        # Look for position data in various formats
                         if 'PO' in response_str:
-                            # Try to extract the hex position after 'PO'
                             pos_index = response_str.find('PO') + 2
                             if pos_index < len(response_str):
                                 hex_str = response_str[pos_index:pos_index+6]
@@ -173,138 +136,118 @@ class ELL14K:
                                     print(f"Calculated angle: {angle:.2f} degrees")
                                     return angle
                                 except ValueError:
-                                    print(f"Could not convert '{hex_str}' to integer")
+                                    print(f"Could not convert '{hex_str}' to int")
                     except Exception as e:
-                        print(f"Error parsing position: {e}")
-                time.sleep(0.5)
-            
-            print("No valid response from any get position command")
-            return None
-        except Exception as e:
-            print(f"Error getting angle: {e}")
-            return None
+                        print(f"Failed decoding/parsing response: {e}")
+            except Exception as e:
+                print(f"Error during get_angle command {cmd}: {e}")
+            time.sleep(0.5)
+        print("No valid response from any get position command")
+        return None
 
     def move_to_angle(self, angle_deg):
-        """Move to absolute angle."""
-        try:
-            print(f"\n--- MOVING TO {angle_deg} DEGREES ---")
-            # Normalize angle to 0-360
-            angle_deg %= 360
-            
-            # Convert angle to steps
-            steps = int(angle_deg * self.steps_per_rev / 360)
-            
-            # Format according to Thorlabs protocol: 6-digit uppercase hex
-            steps_hex = f"{steps:06X}"
-            
-            # Try different move commands
-            commands = [
-                f"MA{steps_hex}".encode('ascii'),
-                f"0MA{steps_hex}".encode('ascii'),
-                f"MOVEABS{steps_hex}".encode('ascii')
-            ]
-            
-            for cmd in commands:
+        print(f"\n--- MOVING TO {angle_deg} DEGREES ---")
+        angle_deg %= 360
+        steps = int(angle_deg * self.steps_per_rev / 360)
+        steps_hex = f"{steps:06X}"
+
+        commands = [
+            f"MA{steps_hex}".encode('ascii'),
+            f"0MA{steps_hex}".encode('ascii'),
+            f"MOVEABS{steps_hex}".encode('ascii')
+        ]
+
+        for cmd in commands:
+            try:
                 print(f"Trying move command: {cmd}")
                 response = self._send_command(cmd)
                 if response:
                     print(f"Move command {cmd} got response: {response}")
-                    time.sleep(1)  # Give time for movement to complete
+                    time.sleep(1)
                     return response
-                time.sleep(0.5)
-            
-            return None
-        except Exception as e:
-            print(f"Error moving to angle: {e}")
-            return None
+            except Exception as e:
+                print(f"Error during move_to_angle command {cmd}: {e}")
+            time.sleep(0.5)
+        return None
 
     def move_by_angle(self, delta_deg):
-        """Move by relative angle."""
-        try:
-            print(f"\n--- MOVING BY {delta_deg} DEGREES ---")
-            # Convert angle to steps
-            steps = int(delta_deg * self.steps_per_rev / 360)
-            
-            # Format based on direction
-            if steps < 0:
-                # Negative movement
-                steps_hex = f"{abs(steps):06X}"
-                commands = [
-                    f"MR-{steps_hex}".encode('ascii'),
-                    f"0MR-{steps_hex}".encode('ascii'),
-                    f"MOVEREL-{steps_hex}".encode('ascii')
-                ]
-            else:
-                # Positive movement
-                steps_hex = f"{steps:06X}"
-                commands = [
-                    f"MR+{steps_hex}".encode('ascii'),
-                    f"0MR+{steps_hex}".encode('ascii'),
-                    f"MOVEREL+{steps_hex}".encode('ascii')
-                ]
-            
-            for cmd in commands:
+        print(f"\n--- MOVING BY {delta_deg} DEGREES ---")
+        steps = int(delta_deg * self.steps_per_rev / 360)
+        if steps < 0:
+            steps_hex = f"{abs(steps):06X}"
+            commands = [
+                f"MR-{steps_hex}".encode('ascii'),
+                f"0MR-{steps_hex}".encode('ascii'),
+                f"MOVEREL-{steps_hex}".encode('ascii')
+            ]
+        else:
+            steps_hex = f"{steps:06X}"
+            commands = [
+                f"MR+{steps_hex}".encode('ascii'),
+                f"0MR+{steps_hex}".encode('ascii'),
+                f"MOVEREL+{steps_hex}".encode('ascii')
+            ]
+
+        for cmd in commands:
+            try:
                 print(f"Trying relative move command: {cmd}")
                 response = self._send_command(cmd)
                 if response:
                     print(f"Relative move command {cmd} got response: {response}")
-                    time.sleep(1)  # Give time for movement to complete
+                    time.sleep(1)
                     return response
-                time.sleep(0.5)
-            
-            return None
-        except Exception as e:
-            print(f"Error moving by angle: {e}")
-            return None
+            except Exception as e:
+                print(f"Error during move_by_angle command {cmd}: {e}")
+            time.sleep(0.5)
+        return None
 
     def close(self):
-        """Safely close the serial connection."""
         if hasattr(self, 'ser') and self.ser.is_open:
             self.ser.close()
             print("Serial connection closed")
 
 if __name__ == "__main__":
-    
-    mount = None  # Initialize mount outside try block
+    mount = None
     try:
-        # List all available ports for troubleshooting
         print("Available ports:")
-        ports = list(serial.tools.list_ports.comports())
-        for p in ports:
-            print(f"{p.device} - {p.description} - SN: {p.serial_number}")
-        
-        # Try with explicit port and higher baud rate
+        try:
+            ports = list(serial.tools.list_ports.comports())
+            for p in ports:
+                print(f"{p.device} - {p.description} - SN: {p.serial_number}")
+        except Exception as e:
+            print(f"Failed to list ports: {e}")
+
         mount = ELL14K(port='COM4', baudrate=115200, timeout=2.0)
-        
+
         print("\nInitial device status check...")
         current_angle = mount.get_angle()
         if current_angle is not None:
             print(f"Starting position: {current_angle:.2f} degrees")
         else:
             print("Could not determine starting position")
-        
+
         print("\nHoming device...")
         home_response = mount.home()
         print(f"Home response: {home_response}")
         time.sleep(2)
-        
+
         print("\nGetting current angle after homing...")
         current_angle = mount.get_angle()
         if current_angle is not None:
             print(f"Current Angle after homing: {current_angle:.2f} degrees")
-        
+
         print("\nMoving to 90 degrees...")
         move_response = mount.move_to_angle(90)
         print(f"Move response: {move_response}")
         time.sleep(1)
-        
+
         print("\nGetting angle after movement...")
         current_angle = mount.get_angle()
         if current_angle is not None:
             print(f"Current Angle after movement: {current_angle:.2f} degrees")
-        
+
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"ERROR: {e}")
     finally:
         if mount is not None:
             mount.close()
