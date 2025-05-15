@@ -7,7 +7,7 @@ import serial.tools.list_ports
 ### run using remoteTest.py 
 
 class ELL14K:
-    def __init__(self, port=None, serial_number='2024-11401210', baudrate=9600, timeout=0.5):
+    def __init__(self, port=None, serial_number='11401210', baudrate=9600, timeout=0.5):
         self.serial_number = serial_number
         self.baudrate = baudrate
         self.timeout = timeout
@@ -125,19 +125,19 @@ if __name__ == "__main__":
         # The port will be automatically detected based on serial number
         mount = ELL14K(serial_number='2024-11401210')
         
-        print("Homing device...")
+        '''print("Homing device...")
         mount.home()
-        time.sleep(3)
+        time.sleep(3)'''
 
         print("Moving to 90 degrees...")
         mount.move_to_angle(90)
         time.sleep(1)
         print("Current Angle:", mount.get_angle())
 
-        print("Moving by 45 degrees...")
+        '''print("Moving by 45 degrees...")
         mount.move_by_angle(45)
         time.sleep(1)
-        print("New Angle:", mount.get_angle())
+        print("New Angle:", mount.get_angle())'''
 
     except Exception as e:
         print(f"Error: {e}")
