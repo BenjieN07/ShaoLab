@@ -35,16 +35,20 @@ class ELL14K:
                 return port.device
         raise Exception(f"Could not find port for serial number: {self.serial_number}")
 
-    def _send_command(self, command_bytes, read_length=32):
-        try:
-            self.ser.write(command_bytes)
-            time.sleep(0.1)
-            response = self.ser.read(read_length)
-            print(f"Sent: {command_bytes}, Received: {response}")
-            return response.strip()
-        except Exception as e:
-            print(f"Error sending command {command_bytes}: {e}")
-            return b''
+def _send_command(self, command_bytes, read_length=32):
+    try:
+        # Append carriage return explicitly
+        full_command = command_bytes + b'\r'
+        self.ser.write(full_command)
+        self.ser.flush()
+        time.sleep(0.1)
+        response = self.ser.read(read_length)
+        print(f"Sent: {full_command}, Received: {response}")
+        return response.strip()
+    except Exception as e:
+        print(f"Error sending command {command_bytes}: {e}")
+        return b''
+
 
     def home(self):
         print("\n--- HOMING DEVICE ---")
