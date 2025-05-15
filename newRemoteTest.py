@@ -2,9 +2,17 @@ import serial
 import time
 import serial.tools.list_ports
 
+# Changes for each function - notes for Ben 
+# move_to_angle - Now properly formats the steps as a 6-digit hexadecimal string and uses uppercase 'MA' command as per Thorlabs protocol.
+# move_by_angle - Fixed to properly handle negative angles and use hex formatting.
+# home - Now uses the proper 'HO' command instead of trying to move to a specific angle.
+# get_angle - Updated to use the _send_command method for consistency and properly parse the hexadecimal position response.
 
+# Previous issues -
+# Thorlabs ELL14K requires position values to be in hexadecimal format, not decimal
+# Commands need to be uppercase (MA, MR, HO, GP) as per the protocol
+# For proper communication, the functions should consistently use the _send_command method
 
-### run using remoteTest.py 
 
 class ELL14K:
     def __init__(self, port='COM4', serial_number='2024-11401210', baudrate=9600, timeout=0.5):
