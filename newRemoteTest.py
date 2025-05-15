@@ -15,13 +15,13 @@ import serial.tools.list_ports
 
 
 class ELL14K:
-    def __init__(self, port='COM4', serial_number='2024-11401210', baudrate=9600, timeout=1.0, 
+    def __init__(self, port='COM4', serial_number='2024-11401210', baudrate=115200, timeout=1.0, 
                  bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE):
         self.serial_number = serial_number
         self.baudrate = baudrate
         self.timeout = timeout
-        # Default to '0' for single-axis setups
-        self.axis_id = b'0'
+        # Try different axis IDs - some devices use '1' instead of '0'
+        self.axis_id = b'1'  # Changed from '0' to '1'
         self.steps_per_rev = 51200  # From Thorlabs documentation
         
         # If port is not specified, try to find it automatically
@@ -55,24 +55,23 @@ class ELL14K:
                 return port.device
         raise Exception(f"Could not find device with serial number {self.serial_number}")
 
-    def _calculate_checksum(self, command):
-        """Calculate checksum for Thorlabs protocol."""
-        return sum(command) & 0xFF
-
     def _send_command(self, command_bytes):
         """Send ASCII command to Elliptec and return text response."""
         try:
-            # According to Thorlabs ELL protocol:
-            # Format: [Axis ID][Command][Parameters][CR][LF]
+            # Try different command formats
+            # Format 1: [Axis ID][Command][Parameters][CR][LF]
+            # Format 2: [Command][Parameters][CR][LF] (no axis ID)
+            # Format 3: [Command][Parameters] (no termination)
             
-            # Try both termination styles since documentation can vary
-            full_command = self.axis_id + command_bytes
+            # Try without axis ID first
+            full_command = command_bytes
             
             # Debug info before sending
             print(f"Sending raw command: {full_command}")
             print(f"Hex representation: {full_command.hex()}")
             
-            # Add CR+LF termination (common for Thorlabs devices)
+            # Try different termination styles
+            # First try with CR+LF
             full_command_crlf = full_command + b'\r\n'
             self.ser.write(full_command_crlf)
             
@@ -98,6 +97,25 @@ class ELL14K:
             
             if not response:
                 print("WARNING: No response received from device")
+                # Try with axis ID if no response
+                print("Trying with axis ID...")
+                full_command_with_id = self.axis_id + command_bytes + b'\r\n'
+                self.ser.write(full_command_with_id)
+                time.sleep(0.2)
+                
+                # Read response again
+                response = b''
+                start_time = time.time()
+                while time.time() - start_time < self.timeout:
+                    if self.ser.in_waiting > 0:
+                        new_data = self.ser.read(self.ser.in_waiting)
+                        response += new_data
+                        print(f"Read partial data with ID: {new_data}")
+                        if b'\r\n' in response or b'\n' in response:
+                            break
+                    time.sleep(0.05)
+                
+                print(f"Response with ID: {response} (Length: {len(response)})")
                 
             return response.strip()
             
@@ -111,10 +129,17 @@ class ELL14K:
         """Home the device using the HO command."""
         try:
             print("\n--- HOMING DEVICE ---")
-            command = b'HO'
-            response = self._send_command(command)
-            time.sleep(2)  # Wait for homing to complete
-            return response
+            # Try different home commands
+            commands = [b'HO', b'HOME', b'0HO']
+            for cmd in commands:
+                print(f"Trying home command: {cmd}")
+                response = self._send_command(cmd)
+                if response:
+                    print(f"Home command {cmd} got response: {response}")
+                    time.sleep(2)  # Wait for homing to complete
+                    return response
+                time.sleep(0.5)
+            return None
         except Exception as e:
             print(f"Error homing device: {e}")
             return None
@@ -123,38 +148,37 @@ class ELL14K:
         """Get current angle in degrees."""
         try:
             print("\n--- GETTING CURRENT ANGLE ---")
-            response = self._send_command(b'GP')
+            # Try different get position commands
+            commands = [b'GP', b'GETPOS', b'0GP']
+            for cmd in commands:
+                print(f"Trying get position command: {cmd}")
+                response = self._send_command(cmd)
+                if response:
+                    print(f"Get position command {cmd} got response: {response}")
+                    try:
+                        # Try to decode as ASCII first
+                        response_str = response.decode('ascii', errors='replace')
+                        print(f"Decoded response: {response_str}")
+                        
+                        # Look for position data in various formats
+                        if 'PO' in response_str:
+                            # Try to extract the hex position after 'PO'
+                            pos_index = response_str.find('PO') + 2
+                            if pos_index < len(response_str):
+                                hex_str = response_str[pos_index:pos_index+6]
+                                print(f"Extracted hex position: {hex_str}")
+                                try:
+                                    steps = int(hex_str, 16)
+                                    angle = steps * 360.0 / self.steps_per_rev
+                                    print(f"Calculated angle: {angle:.2f} degrees")
+                                    return angle
+                                except ValueError:
+                                    print(f"Could not convert '{hex_str}' to integer")
+                    except Exception as e:
+                        print(f"Error parsing position: {e}")
+                time.sleep(0.5)
             
-            # Detailed response parsing with debug
-            print(f"Raw position response: {response}")
-            if not response:
-                print("Empty response when getting angle")
-                return None
-                
-            try:
-                # Try to decode as ASCII first
-                response_str = response.decode('ascii', errors='replace')
-                print(f"Decoded response: {response_str}")
-                
-                # Look for position data in various formats
-                # Some devices return 0PO[hex], others might use different formats
-                if 'PO' in response_str:
-                    # Try to extract the hex position after 'PO'
-                    pos_index = response_str.find('PO') + 2
-                    if pos_index < len(response_str):
-                        hex_str = response_str[pos_index:pos_index+6]
-                        print(f"Extracted hex position: {hex_str}")
-                        try:
-                            steps = int(hex_str, 16)
-                            angle = steps * 360.0 / self.steps_per_rev
-                            print(f"Calculated angle: {angle:.2f} degrees")
-                            return angle
-                        except ValueError:
-                            print(f"Could not convert '{hex_str}' to integer")
-            except Exception as e:
-                print(f"Error parsing position: {e}")
-            
-            print(f"Could not parse position response: {response}")
+            print("No valid response from any get position command")
             return None
         except Exception as e:
             print(f"Error getting angle: {e}")
@@ -173,16 +197,23 @@ class ELL14K:
             # Format according to Thorlabs protocol: 6-digit uppercase hex
             steps_hex = f"{steps:06X}"
             
-            # Command format: [Axis ID]MA[position]
-            command = f"MA{steps_hex}".encode('ascii')
+            # Try different move commands
+            commands = [
+                f"MA{steps_hex}".encode('ascii'),
+                f"0MA{steps_hex}".encode('ascii'),
+                f"MOVEABS{steps_hex}".encode('ascii')
+            ]
             
-            print(f"Move to angle: {angle_deg} = {steps} steps = hex {steps_hex}")
-            response = self._send_command(command)
+            for cmd in commands:
+                print(f"Trying move command: {cmd}")
+                response = self._send_command(cmd)
+                if response:
+                    print(f"Move command {cmd} got response: {response}")
+                    time.sleep(1)  # Give time for movement to complete
+                    return response
+                time.sleep(0.5)
             
-            # Give time for movement to complete
-            time.sleep(1)
-            
-            return response
+            return None
         except Exception as e:
             print(f"Error moving to angle: {e}")
             return None
@@ -198,19 +229,30 @@ class ELL14K:
             if steps < 0:
                 # Negative movement
                 steps_hex = f"{abs(steps):06X}"
-                command = f"MR-{steps_hex}".encode('ascii')
+                commands = [
+                    f"MR-{steps_hex}".encode('ascii'),
+                    f"0MR-{steps_hex}".encode('ascii'),
+                    f"MOVEREL-{steps_hex}".encode('ascii')
+                ]
             else:
                 # Positive movement
                 steps_hex = f"{steps:06X}"
-                command = f"MR+{steps_hex}".encode('ascii')
+                commands = [
+                    f"MR+{steps_hex}".encode('ascii'),
+                    f"0MR+{steps_hex}".encode('ascii'),
+                    f"MOVEREL+{steps_hex}".encode('ascii')
+                ]
             
-            print(f"Move by angle: {delta_deg} = {steps} steps = command {command}")
-            response = self._send_command(command)
+            for cmd in commands:
+                print(f"Trying relative move command: {cmd}")
+                response = self._send_command(cmd)
+                if response:
+                    print(f"Relative move command {cmd} got response: {response}")
+                    time.sleep(1)  # Give time for movement to complete
+                    return response
+                time.sleep(0.5)
             
-            # Give time for movement to complete
-            time.sleep(1)
-            
-            return response
+            return None
         except Exception as e:
             print(f"Error moving by angle: {e}")
             return None
@@ -231,8 +273,8 @@ if __name__ == "__main__":
         for p in ports:
             print(f"{p.device} - {p.description} - SN: {p.serial_number}")
         
-        # Try with explicit port instead of relying on serial number
-        mount = ELL14K(port='COM4', timeout=2.0)
+        # Try with explicit port and higher baud rate
+        mount = ELL14K(port='COM4', baudrate=115200, timeout=2.0)
         
         print("\nInitial device status check...")
         current_angle = mount.get_angle()
