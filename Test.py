@@ -2,21 +2,22 @@ import serial
 import time
 
 def degrees_to_hex(degrees):
-    """
-    Converts degrees to the hex format used by ELL14K controller.
-    Example: 45 degrees -> 00004600
-    """
     # Convert degrees to the correct hex format
-    hex_value = int(degrees * 512)  # 512 steps per degree
-    return f"{hex_value:08X}"
+    steps = int(round(degrees * 398.2))  # 392.2 steps per degree
+    return f"{steps:08X}"
 
 def hex_to_degrees(hex_str):
     """
-    Converts hex format back to degrees.
-    Example: 00004600 -> 45 degrees
+    Converts a full 0maXXXXXXXX command back to degrees.
+    Assumes 398.2 steps per degree.
     """
-    pulses = int(hex_str, 16)
-    return pulses / 512  # 512 steps per degree
+    if not hex_str.startswith("0ma") or len(hex_str) != 11:
+        raise ValueError("Invalid response format for conversion")
+
+    hex_part = hex_str[3:]  # Get the 8 hex digits
+    steps = int(hex_part, 16)  # Convert hex to int
+    degrees = steps / 398.2
+    return degrees
 
 def move_to(ser, angle, motor_num='0'):
     """
@@ -59,10 +60,9 @@ def move_to(ser, angle, motor_num='0'):
         print("Failed to send move command")
 
 def send_command(ser, command):
-    """
-    Sends a command to the motor via serial communication.
-    Returns the response or None if the COM port is unavailable.
-    """
+    # Sends a command to the motor via serial communication.
+    # Returns the response or None if the COM port is unavailable.
+
     if ser.isOpen():
         # Clear any existing data in the buffers
         ser.reset_input_buffer()
