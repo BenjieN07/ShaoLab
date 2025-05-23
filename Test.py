@@ -21,7 +21,7 @@ def hex_to_degrees(hex_str):
 
 ### test the conversion functions
 print(degrees_to_hex(45))
-print(hex_to_degrees('0ma0000558E'))
+print(hex_to_degrees('0ma000045FF'))
 
 def move_to(ser, angle, motor_num='0'):
     """
