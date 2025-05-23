@@ -19,6 +19,10 @@ def hex_to_degrees(hex_str):
     degrees = steps / 398.2
     return degrees
 
+### test the conversion functions
+print(degrees_to_hex(45))
+print(hex_to_degrees('0ma0000558E'))
+
 def move_to(ser, angle, motor_num='0'):
     """
     Moves the motor to a specified angle in degrees.
