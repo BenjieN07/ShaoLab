@@ -34,8 +34,9 @@ class GoveeThermometerGUI:
         # Custom device names - dictionary to store user-assigned names
         self.device_names = {}  # key: device_address, value: custom_name
         
-        # File to store device names persistently
-        self.names_file = "thermometer_names.json"
+        # File to store device names persistently - force it to be in the same directory as the script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.names_file = os.path.join(script_dir, "thermometer_names.json")
         
         # Load saved device names
         self.load_device_names()
