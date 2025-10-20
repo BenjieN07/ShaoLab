@@ -4,7 +4,7 @@
 # Pre-requisites:
 # 1. MultiPyVu module and its dependencies (pywin32, pandas, pillow, pyyaml) must be installed 
 #    in the Python environment (Python >= 3.8).
-
+# .\venv\Scripts\Activate.ps1
 import MultiPyVu as mpv
 import sys
 import logging
