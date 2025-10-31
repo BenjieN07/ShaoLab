@@ -1,10 +1,15 @@
 # File: opticool_server.py
 # This script must be run on the Windows PC connected to the OptiCool instrument.
-#
+
 # Pre-requisites:
 # 1. MultiPyVu module and its dependencies (pywin32, pandas, pillow, pyyaml) must be installed 
 #    in the Python environment (Python >= 3.8).
+
+# activate your virtual environment before running this script:
 # .\venv\Scripts\Activate.ps1
+# source env/bin/activate
+
+
 import MultiPyVu as mpv
 import sys
 import logging
