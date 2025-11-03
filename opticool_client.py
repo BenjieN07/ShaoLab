@@ -1,6 +1,8 @@
 # opticool_client_gui.py
 # OptiCool client GUI with stable connection and realistic cryostat values
 # Compatible with MultiPyVu 3.x
+#venv\Scripts\Activate.ps1 
+# py -3.7 opticool_client.py
 
 import MultiPyVu as mpv
 import tkinter as tk
@@ -10,6 +12,7 @@ import time
 import logging
 
 # --- Configuration ---
+# SERVER_HOST = '104.39.63.91' other computer ip
 SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 5001
 

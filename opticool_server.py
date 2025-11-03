@@ -3,21 +3,27 @@
 
 # Pre-requisites:
 # 1. MultiPyVu module and its dependencies (pywin32, pandas, pillow, pyyaml) must be installed 
-#    in the Python environment (Python >= 3.8).
 
-# activate your virtual environment before running this script:
-# .\venv\Scripts\Activate.ps1
-# source env/bin/activate
+
+#venv\Scripts\Activate.ps1 ; activate the virtual enviroment
+
+# Or if you have a requirements file:
+# pip install -r requirements.txt
+### py -3.7 opticool_server.py --scaffold
 
 
 import MultiPyVu as mpv
 import sys
 import logging
 import argparse
-import time # <-- Standard Python 'time' module imported here
+import time
 
 # Configure logging to see server activity
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Or if you have a requirements file:
+# pip install -r requirements.txt
+### py -3.7 opticool_server.py --scaffold
 
 # Default hostname/IP is '0.0.0.0' (listens on all interfaces) and default port is 5000.
 HOST = '0.0.0.0'
