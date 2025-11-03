@@ -1,0 +1,13 @@
+# Requirements for OptiCool Server and Client
+
+# Core dependencies
+multipyvu>=1.3.0
+
+# MultiPyVu dependencies
+pywin32>=300; platform_system=="Windows"
+pandas>=1.3.0
+pillow>=8.0.0
+pyyaml>=5.4.0
+
+# Client dependencies (if using requests for HTTP communication)
+requests>=2.25.0
